@@ -1,0 +1,2 @@
+redis==3.0.1
+git+https://github.com/matheuscmelo/utils
