@@ -1,5 +1,6 @@
 import traceback
 import json
+import pickledb
 from redis import Redis
 from threading import Thread
 from hashlib import sha256
@@ -8,6 +9,9 @@ from random import randint
 from utils.work_distributer.requester import RefreshRequester
 from utils.services import plugin_service
 from time import sleep
+
+
+db = pickledb.load('plugins.db', True)
 
 class RefreshWorker(object):
     ''' Responsible for using a Academic Parser
@@ -21,6 +25,23 @@ class RefreshWorker(object):
         self.working = False
         self.ping = Ping(self.workers, self.working)
         self.ping.start()
+        plugins = db.get('plugins')
+        if type(plugins) is not list:
+            db.lcreate('plugins')
+        print(db.get('plugins'))
+
+    def send_plugins(self, worker):
+
+        def send_plugin(requester, worker, plugin):
+            requester.block_request({
+            "action": "install_plugin",
+            "plugin_repo": plugin
+            })
+
+        plugins = db.get('plugins')
+        requester = RefreshRequester(worker)
+        for p in plugins:
+            Thread(target=send_plugin, args=(requester, worker, p)).start()
 
     def run(self):
         while True:
@@ -29,11 +50,16 @@ class RefreshWorker(object):
                 self.working = True
                 action = data.get('action')
                 if action == 'register':
-                    self.workers.append(data.get('name'))
+                    worker = data.get('name')
+                    self.workers.append(worker)
                     self.queue.respond({"status": 'success'})
-                    print("Added worker {}".format(data.get('name')),
+                    print("Added worker {}".format(worker),
                           "\n Now with {} workers registered".format(len(self.workers)))
+                    self.send_plugins(worker)
                 elif action == 'install_plugin':
+                    plugins = db.get('plugins')
+                    if data.get('plugin_repo') not in plugins:
+                        db.ladd('plugins', data.get('plugin_repo'))
                     threads = []
                     for queue in self.workers:
                         requester = RefreshRequester(queue)
