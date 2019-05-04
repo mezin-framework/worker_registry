@@ -51,11 +51,12 @@ class RefreshWorker(object):
                 action = data.get('action')
                 if action == 'register':
                     worker = data.get('name')
-                    self.workers.append(worker)
-                    self.queue.respond({"status": 'success'})
-                    print("Added worker {}".format(worker),
-                          "\n Now with {} workers registered".format(len(self.workers)))
-                    self.send_plugins(worker)
+                    if worker not in self.workers:
+                        self.workers.append(worker)
+                        self.queue.respond({"status": 'success'})
+                        print("Added worker {}".format(worker),
+                              "\n Now with {} workers registered".format(len(self.workers)))
+                        self.send_plugins(worker)
                 elif action == 'install_plugin':
                     plugins = db.get('plugins')
                     if data.get('plugin_repo') not in plugins:
