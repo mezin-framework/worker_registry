@@ -1,17 +1,14 @@
 import traceback
 import json
-import pickledb
 from redis import Redis
 from threading import Thread
 from hashlib import sha256
 from datetime import datetime
 from random import randint
 from utils.work_distributer.requester import RefreshRequester
-from utils.services import plugin_service
 from time import sleep
 
-
-db = pickledb.load('plugins.db', True)
+from registry.db import db
 
 class RefreshWorker(object):
     ''' Responsible for using a Academic Parser
@@ -25,9 +22,6 @@ class RefreshWorker(object):
         self.working = False
         self.ping = Ping(self.workers, self.working)
         self.ping.start()
-        plugins = db.get('plugins')
-        if type(plugins) is not list:
-            db.lcreate('plugins')
         print(db.get('plugins'))
 
     def send_plugins(self, worker):
@@ -39,6 +33,7 @@ class RefreshWorker(object):
             })
 
         plugins = db.get('plugins')
+        plugins = [db.get(p) for p in plugins]
         requester = RefreshRequester(worker)
         for p in plugins:
             Thread(target=send_plugin, args=(requester, worker, p)).start()
@@ -59,8 +54,10 @@ class RefreshWorker(object):
                         self.send_plugins(worker)
                 elif action == 'install_plugin':
                     plugins = db.get('plugins')
-                    if data.get('plugin_repo') not in plugins:
-                        db.ladd('plugins', data.get('plugin_repo'))
+                    plugin_name = data.get('plugin_name')
+                    plugin_repo = data.get('plugin_repo')
+                    if plugin_name not in plugins:
+                        db.put_plugin(plugin_name, plugin_repo)
                     threads = []
                     for queue in self.workers:
                         requester = RefreshRequester(queue)
@@ -69,8 +66,14 @@ class RefreshWorker(object):
                         t.start()
                     for t in threads:
                         t.join()
-
                     self.queue.respond({"status": "success"})
+                elif action == 'get_plugins':
+                    plugins = db.get('plugins')
+                    plugin_repos = [{
+                        "plugin_name": p,
+                        "plugin_repo": db.get(p)
+                    } for p in plugins]
+                    self.queue.respond({"plugins": plugin_repos, "status": "success"})
                 self.working = False
             except:
                 traceback.print_exc()
