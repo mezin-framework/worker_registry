@@ -22,7 +22,6 @@ class RefreshWorker(object):
         self.working = False
         self.ping = Ping(self.workers, self.working)
         self.ping.start()
-        print(db.get('plugins'))
 
     def send_plugins(self, worker):
 
@@ -50,7 +49,7 @@ class RefreshWorker(object):
                         self.workers.append(worker)
                         self.queue.respond({"status": 'success'})
                         print("Added worker {}".format(worker),
-                              "\n Now with {} workers registered".format(len(self.workers)))
+                              "\nNow with {} workers registered".format(len(self.workers)))
                         self.send_plugins(worker)
                 elif action == 'install_plugin':
                     plugins = db.get('plugins')
@@ -73,7 +72,12 @@ class RefreshWorker(object):
                         "plugin_name": p,
                         "plugin_repo": db.get(p)
                     } for p in plugins]
-                    self.queue.respond({"plugins": plugin_repos, "status": "success"})
+                    self.queue.respond({"data": plugin_repos, "status": "success"})
+                elif action == 'delete_plugin':
+                    plugin_name = data.get('plugin_name')
+                    db.delete_plugin(plugin_name)
+                    self.queue.respond({"status": "success"})
+
                 self.working = False
             except:
                 traceback.print_exc()

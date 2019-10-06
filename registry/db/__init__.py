@@ -21,6 +21,9 @@ class PluginDatabase(object):
     def put_plugin(self, plugin_name, plugin_repo):
         self.db.get('plugins').append(plugin_name)
         self.db.set(plugin_name, plugin_repo)
+    
+    def delete_plugin(self, plugin_name):
+        self.db.get('plugins').remove(plugin_name)
 
 check_db_directory()
 db = PluginDatabase()
